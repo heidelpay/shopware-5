@@ -105,7 +105,7 @@ staging:
         - mkdir -p ~/.ssh
         - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
     script:
-        - ssh -A web-user@c-140.maxcluster.net 'cd /var/www/share/unzer-sw5.kellerkinder.io/htdocs/custom/plugins/HeidelPayment && git pull && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:cache:clear && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:plugin:refresh && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:plugin:uninstall UnzerPayment && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:plugin:install --activate HeidelPayment && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:theme:cache:generate'
+        - ssh -A web-user@c-140.maxcluster.net 'cd /var/www/share/unzer-sw5.kellerkinder.io/htdocs/custom/plugins/HeidelPayment && git pull && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:cache:clear && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:plugin:refresh && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:plugin:uninstall HeidelPayment && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:plugin:install --activate HeidelPayment && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:theme:cache:generate'
 
 package:
     image: kellerkinder/shopware-package-plugin:latest
