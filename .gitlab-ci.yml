@@ -90,7 +90,6 @@ staging:
         url: https://unzer-sw5.kellerkinder.io
     only:
         - master
-        - feature/HEIDELPAYSUPPORT-83
     before_script:
         # Run ssh-agent (inside the build environment)
         - eval $(ssh-agent -s)
