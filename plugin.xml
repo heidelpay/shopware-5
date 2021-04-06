@@ -129,6 +129,7 @@
                    <li>Korrektur eines Fehlers für wiederkehrende Kreditkarten Zahlung in Verbindung mit SwagAboCommerce</li>
                    <li>Korrektur der Validierung des Geburtsdatums für FlexiPay Rechnung für B2B</li>
                    <li>Korrektur der Warenkorb Verarbeitung</li>
+                   <li>Korrektur eines Fehlers für FlexiPay Lastschrift (gesichert) für gespeicherte Lastschriftkonten</li>
                </ul>
             ]]>
         </changes>
@@ -140,6 +141,7 @@
                    <li>Fixed an error of credit card payments in combination with AboCommerce orders</li>
                    <li>Fixed the validation of the birthdate for FlexiPay invoice for B2B</li>
                    <li>Fixed the shopping cart hydration</li>
+                   <li>Fixed an error with FlexiPay Direct Debit (secured) for saved bank accounts</li>
                </ul>
             ]]>
         </changes>
