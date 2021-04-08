@@ -13,6 +13,8 @@ use Shopware\Components\Random;
 
 class BasketHydrator implements ResourceHydratorInterface
 {
+    public const UNZER_DEFAULT_PRECISION = 4;
+
     private const SW_VOUCHER_MODE      = '2';
     private const SW_DISCOUNT          = '3';
     private const SW_ABO_DISCOUNT_MODE = '10';
@@ -31,91 +33,99 @@ class BasketHydrator implements ResourceHydratorInterface
             return $heidelpayObj->fetchBasket($resourceId);
         }
 
-        $isAmountInNet               = isset($data['sAmountWithTax']);
-        $isTaxFree                   = $data['taxFree'];
-        $amountTotalGrossTransaction = $isAmountInNet && !$isTaxFree ? $data['sAmountWithTax'] : $data['sAmount'];
+        $isAmountInNet    = isset($data['sAmountWithTax']);
+        $isTaxFree        = $data['taxFree'];
+        $amountTotalGross = $isAmountInNet && !$isTaxFree ? $data['sAmountWithTax'] : $data['sAmount'];
 
-        $basketAmountTotalGross    = 0;
-        $basketAmountTotalVat      = 0;
-        $basketAmountTotalDiscount = 0;
+        $basket = new Basket(
+            $this->generateOrderId(),
+            round($amountTotalGross, self::UNZER_DEFAULT_PRECISION),
+            $data['sCurrencyName']
+        );
 
-        $result = new Basket();
-        $result->setCurrencyCode($data['sCurrencyName']);
-        $result->setOrderId($this->generateOrderId());
+        $basket->setAmountTotalVat(round($data['sAmountTax'], self::UNZER_DEFAULT_PRECISION));
 
-        //Actual line items
-        foreach ($data['content'] as $lineItem) {
-            $amountNet     = abs($lineItem['amountnetNumeric']);
-            $amountGross   = $isAmountInNet ? abs($lineItem['amountWithTax']) : abs($lineItem['amountNumeric']);
-            $amountPerUnit = $isAmountInNet
-                ? $amountGross / $lineItem['quantity']
-                : abs($lineItem['additional_details']['price_numeric']);
+        $this->hydrateBasketItems($basket, $data['content'], $isAmountInNet);
+        $this->hydrateDispatch($basket, $data);
+        $this->hydrateDiscount($basket);
 
-            if (!$amountPerUnit) {
-                $amountPerUnit = abs($lineItem['priceNumeric']);
-            }
+        return $basket;
+    }
 
+    protected function hydrateBasketItems(Basket $basket, array $lineItems, bool $isAmountInNet): void
+    {
+        foreach ($lineItems as $lineItem) {
             $basketItem = new BasketItem();
+            $basketItem->setType($this->getBasketItemType($lineItem));
+            $basketItem->setTitle($lineItem['articlename']);
+            $basketItem->setQuantity((int) $lineItem['quantity']);
+
+            $amountGross = round(abs(
+                $isAmountInNet ? $lineItem['amountWithTax'] : $lineItem['amountNumeric']
+            ), self::UNZER_DEFAULT_PRECISION);
 
             if ($this->isBasketItemVoucher($lineItem)) {
-                $basketItem->setType($this->getBasketItemType($lineItem));
-                $basketItem->setTitle($lineItem['articlename']);
-                $basketItem->setAmountDiscount(round($amountGross, 4));
-                $basketItem->setQuantity((int) $lineItem['quantity']);
-
-                $basketAmountTotalDiscount += $basketItem->getAmountDiscount();
+                $basketItem->setAmountDiscount($amountGross);
             } else {
-                $basketItem->setType($this->getBasketItemType($lineItem));
-                $basketItem->setTitle($lineItem['articlename']);
-                $basketItem->setAmountPerUnit(round($amountPerUnit, 4));
-                $basketItem->setAmountGross(round($amountGross, 4));
-                $basketItem->setAmountNet(round($amountNet, 4));
-                $basketItem->setAmountVat(round(abs(str_replace(',', '.', $lineItem['tax'])), 4));
-                $basketItem->setQuantity((int) $lineItem['quantity']);
-                $basketItem->setVat((float) $lineItem['tax_rate']);
+                $amountPerUnit = $isAmountInNet
+                    ? $amountGross / $lineItem['quantity']
+                    : abs($lineItem['additional_details']['price_numeric']);
 
-                $basketAmountTotalGross += $basketItem->getAmountGross();
-                $basketAmountTotalVat += $basketItem->getAmountVat();
+                if (!$amountPerUnit) {
+                    $amountPerUnit = abs($lineItem['priceNumeric']);
+                }
+
+                $basketItem->setAmountPerUnit(round($amountPerUnit, self::UNZER_DEFAULT_PRECISION));
+                $basketItem->setAmountGross($amountGross);
+                $basketItem->setAmountNet(round(abs($lineItem['amountnetNumeric']), self::UNZER_DEFAULT_PRECISION));
+                $basketItem->setAmountVat(round(abs(str_replace(',', '.', $lineItem['tax'])), self::UNZER_DEFAULT_PRECISION));
+                $basketItem->setVat((float) $lineItem['tax_rate']);
             }
 
-            if ($lineItem['abo_attributes']['isAboArticle']) {
-                $result->setSpecialParams(array_merge($result->getSpecialParams(), ['isAbo' => true]));
+            if (array_key_exists('abo_attributes', $lineItem) && !empty($lineItem['abo_attributes'])
+                && array_key_exists('isAboArticle', $lineItem['abo_attributes']) && !empty($lineItem['abo_attributes']['isAboArticle'])) {
+                $basket->setSpecialParams(array_merge($basket->getSpecialParams(), ['isAbo' => true]));
                 $basketItem->setSpecialParams([
                     'aboCommerce' => $lineItem['aboCommerce'],
                 ]);
             }
 
-            $result->addBasketItem($basketItem);
+            $basket->addBasketItem($basketItem);
         }
+    }
 
-        //No dispatch selected!
-        if (empty($data['sDispatch'])) {
-            return $result;
+    protected function hydrateDispatch(Basket $basket, array $data): void
+    {
+        if (!array_key_exists('sDispatch', $data) || empty($data['sDispatch'])) {
+            return;
         }
 
         //Shipping cost line item
         $dispatchBasketItem = new BasketItem();
         $dispatchBasketItem->setType(BasketItemTypes::SHIPMENT);
         $dispatchBasketItem->setTitle($data['sDispatch']['name']);
-        $dispatchBasketItem->setAmountGross(round($data['sShippingcostsWithTax'], 4));
-        $dispatchBasketItem->setAmountPerUnit(round($data['sShippingcostsWithTax'], 4));
-        $dispatchBasketItem->setAmountNet(round($data['sShippingcostsNet'], 4));
-        $dispatchBasketItem->setAmountVat(round($data['sShippingcostsWithTax'] - $data['sShippingcostsNet'], 4));
-        $dispatchBasketItem->setQuantity(1);
+        $dispatchBasketItem->setAmountGross(round($data['sShippingcostsWithTax'], self::UNZER_DEFAULT_PRECISION));
+        $dispatchBasketItem->setAmountPerUnit(round($data['sShippingcostsWithTax'], self::UNZER_DEFAULT_PRECISION));
+        $dispatchBasketItem->setAmountNet(round($data['sShippingcostsNet'], self::UNZER_DEFAULT_PRECISION));
+        $dispatchBasketItem->setAmountVat(round($data['sShippingcostsWithTax'] - $data['sShippingcostsNet'], self::UNZER_DEFAULT_PRECISION));
         $dispatchBasketItem->setVat((float) $data['sShippingcostsTax']);
+        $dispatchBasketItem->setQuantity(1);
 
-        $result->addBasketItem($dispatchBasketItem);
+        $basket->addBasketItem($dispatchBasketItem);
+    }
 
-        $basketAmountTotalGross += $dispatchBasketItem->getAmountGross();
-        $basketAmountTotalVat += $dispatchBasketItem->getAmountVat();
-        $basketAmountTotalDiscount += $dispatchBasketItem->getAmountDiscount();
+    protected function hydrateDiscount(Basket $basket): void
+    {
+        $calculatedDiscount = 0;
 
-        // setting of all totalAmounts
-        $result->setAmountTotalGross(round((float) $basketAmountTotalGross, 4));
-        $result->setAmountTotalVat(round((float) $basketAmountTotalVat, 4));
-        $result->setAmountTotalDiscount(round((float) $basketAmountTotalDiscount, 4));
+        /** @var BasketItem $basketItem */
+        foreach ($basket->getBasketItems() as $basketItem) {
+            if ((int) round($basketItem->getAmountDiscount(), self::UNZER_DEFAULT_PRECISION) !== 0) {
+                $calculatedDiscount += round($basketItem->getAmountDiscount(), self::UNZER_DEFAULT_PRECISION);
+            }
+        }
 
-        return $result;
+        $basket->setAmountTotalDiscount($calculatedDiscount);
     }
 
     private function generateOrderId(): string

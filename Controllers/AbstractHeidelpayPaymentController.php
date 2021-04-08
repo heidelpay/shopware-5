@@ -183,7 +183,7 @@ abstract class AbstractHeidelpayPaymentController extends Shopware_Controllers_F
         }
 
         $heidelBasket            = $this->getRecurringBasket($recurringData['order']);
-        $this->paymentDataStruct = new PaymentDataStruct($heidelBasket->getAmountTotalGross(), $recurringData['order']['currency'], $this->getChargeRecurringUrl());
+        $this->paymentDataStruct = new PaymentDataStruct($this->getAmount(), $recurringData['order']['currency'], $this->getChargeRecurringUrl());
 
         $this->paymentDataStruct->fromArray([
             'basket'           => $heidelBasket,

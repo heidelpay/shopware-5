@@ -1,6 +1,7 @@
 stages:
     - setup
     - test
+    - deploy
     - package
 
 cache:
@@ -64,6 +65,7 @@ sw-phpstan:
         - cd ${CI_PROJECT_DIR}/sw_dir/custom/plugins/${CI_PROJECT_NAME} && vendor/bin/phpstan analyse -c phpstan_sw.neon -a vendor/autoload.php -a ../../../vendor/autoload.php .
 
 shopware-validate:
+    allow_failure: true
     image:
         name: friendsofshopware/plugin-uploader:0.3.5
         entrypoint: [ "/bin/sh", "-c" ]
@@ -81,9 +83,34 @@ shopware-validate:
         - php /app/bin/pluginupload ext:zip . $CI_COMMIT_SHA
         - php /app/bin/pluginupload ext:validate *$CI_COMMIT_SHA.zip
 
+staging:
+    image: "edbizarro/gitlab-ci-pipeline-php:7.2"
+    stage: deploy
+    environment:
+        name: staging
+        url: https://unzer-sw5.kellerkinder.io
+    only:
+        - master
+    before_script:
+        # Run ssh-agent (inside the build environment)
+        - eval $(ssh-agent -s)
+
+        # Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
+        - ssh-add <(echo "$SSH_PRIVATE_KEY")
+
+        # For Docker builds disable host key checking. Be aware that by adding that
+        # you are suspectible to man-in-the-middle attacks.
+        # WARNING: Use this only with the Docker executor, if you use it with shell
+        # you will overwrite your user's SSH config.
+        - mkdir -p ~/.ssh
+        - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+    script:
+        - ssh -A web-user@c-140.maxcluster.net 'cd /var/www/share/unzer-sw5.kellerkinder.io/htdocs/custom/plugins/HeidelPayment && git pull && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:cache:clear && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:plugin:refresh && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:plugin:uninstall HeidelPayment && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:plugin:install --activate HeidelPayment && /var/www/share/unzer-sw5.kellerkinder.io/htdocs/bin/console sw:theme:cache:generate'
+
 package:
     image: kellerkinder/shopware-package-plugin:latest
     stage: package
+    needs: []
     only:
         - tags
         - master

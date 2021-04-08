@@ -103,7 +103,7 @@
 
         setValidationError: function (type, message) {
             var $element = this.getEventElement(type),
-                $elementLabel = $(`#card-element-error-${type}-label`);
+                $elementLabel = $('#card-element-error-' + type + '-label');
 
             if (message) {
                 $elementLabel.removeClass(this.opts.elementHiddenClass);
@@ -136,7 +136,7 @@
         },
 
         getEventElement: function (type) {
-            return $(`*[data-type="${type}"]`);
+            return $('*[data-type="' + type + '"]');
         },
 
         onFormChange: function (event) {

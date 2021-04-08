@@ -52,7 +52,35 @@ class Shopware_Controllers_Widgets_HeidelpayPaypal extends AbstractHeidelpayPaym
         }
     }
 
-    public function recurringFinishedAction(): void
+    public function chargeRecurringPaymentAction(): void
+    {
+        parent::recurring();
+
+        if (!$this->paymentDataStruct) {
+            $this->getApiLogger()->getPluginLogger()->error('The payment data struct could not be created');
+            $this->view->assign('success', false);
+
+            return;
+        }
+
+        try {
+            $this->charge($this->paymentDataStruct->getReturnUrl());
+            $orderNumber = $this->createRecurringOrder();
+        } catch (HeidelpayApiException $ex) {
+            $this->getApiLogger()->logException($ex->getMessage(), $ex);
+        } catch (RuntimeException $ex) {
+            $this->getApiLogger()->getPluginLogger()->error($ex->getMessage(), $ex);
+        } finally {
+            $this->view->assign([
+                'success' => !empty($orderNumber),
+                'data'    => [
+                    'orderNumber' => $orderNumber ?: '',
+                ],
+            ]);
+        }
+    }
+
+    protected function recurringFinishedAction(): void
     {
         try {
             parent::pay();
@@ -88,34 +116,6 @@ class Shopware_Controllers_Widgets_HeidelpayPaypal extends AbstractHeidelpayPaym
             }
 
             $this->view->assign('redirectUrl', $redirectUrl);
-        }
-    }
-
-    public function chargeRecurringPaymentAction(): void
-    {
-        parent::recurring();
-
-        if (!$this->paymentDataStruct) {
-            $this->getApiLogger()->getPluginLogger()->error('The payment data struct could not be created');
-            $this->view->assign('success', false);
-
-            return;
-        }
-
-        try {
-            $this->charge($this->paymentDataStruct->getReturnUrl());
-            $orderNumber = $this->createRecurringOrder();
-        } catch (HeidelpayApiException $ex) {
-            $this->getApiLogger()->logException($ex->getMessage(), $ex);
-        } catch (RuntimeException $ex) {
-            $this->getApiLogger()->getPluginLogger()->error($ex->getMessage(), $ex);
-        } finally {
-            $this->view->assign([
-                'success' => !empty($orderNumber),
-                'data'    => [
-                    'orderNumber' => $orderNumber ?: '',
-                ],
-            ]);
         }
     }
 

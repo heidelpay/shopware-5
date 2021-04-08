@@ -51,7 +51,7 @@
                 amount: this.opts.basketAmount,
                 currency: this.opts.currencyIso,
                 effectiveInterest: this.opts.effectiveInterest
-            }).then(() => {
+            }).then(function() {
                 $(me.opts.generatedBirthdayElementSelector).attr('required', 'required');
                 $(me.opts.generatedBirthdayElementSelector).attr('form', 'confirm--form');
             }).catch(function() {

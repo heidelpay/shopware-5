@@ -27,6 +27,8 @@ class PrivateCustomerHydrator extends AbstractCustomerHydrator implements Resour
         $shippingAddress = $data['shippingaddress'];
         $billingAddress  = $data['billingaddress'];
 
+        $phoneNumber = \preg_replace(self::PHONE_NUMBER_REGEX, '', $billingAddress['phone']);
+
         try {
             if ($heidelpayObj) {
                 $result = $heidelpayObj->fetchCustomerByExtCustomerId($resourceId);
@@ -43,7 +45,7 @@ class PrivateCustomerHydrator extends AbstractCustomerHydrator implements Resour
         $result->setEmail($user['email']);
         $result->setSalutation($this->getSalutation($billingAddress['salutation']));
         $result->setCustomerId($user['customernumber']);
-        $result->setPhone($billingAddress['phone']);
+        $result->setPhone($phoneNumber);
 
         $result->setBillingAddress($this->getHeidelpayAddress($billingAddress));
         $result->setShippingAddress($this->getHeidelpayAddress($shippingAddress));

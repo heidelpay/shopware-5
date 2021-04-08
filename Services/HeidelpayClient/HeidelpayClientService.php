@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HeidelPayment\Services\HeidelpayClient;
 
+use HeidelPayment\Components\HeidelpayDebugHandler;
 use HeidelPayment\Services\ConfigReader\ConfigReaderServiceInterface;
 use HeidelPayment\Services\HeidelpayApiLogger\HeidelpayApiLoggerServiceInterface;
 use heidelpayPHP\Heidelpay;
@@ -44,7 +45,12 @@ class HeidelpayClientService implements HeidelpayClientServiceInterface
         }
 
         try {
-            return new Heidelpay($this->getPrivateKey(), $locale);
+            $heidelpay = new Heidelpay($this->getPrivateKey(), $locale);
+
+            $heidelpay->setDebugMode((bool) $this->configReaderService->get('extended_logging'));
+            $heidelpay->setDebugHandler((new HeidelpayDebugHandler($this->apiLoggerService->getPluginLogger())));
+
+            return $heidelpay;
         } catch (RuntimeException $ex) {
             $this->apiLoggerService->getPluginLogger()->error(sprintf('Could not initialize Heidelpay client due to the following error: %s', $ex->getMessage()));
         }

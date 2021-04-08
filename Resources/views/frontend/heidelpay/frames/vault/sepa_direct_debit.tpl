@@ -33,6 +33,7 @@
                                            {if $sUserData.additional.user.birthday !== ''}value="{$sUserData.additional.user.birthday}"{/if}
                                            data-datepicker="true"
                                            data-allowInput="true"
+                                           data-dateFormat="d.m.Y"
                                            data-altInput="false"/>
                                 {/if}
                             {/block}
